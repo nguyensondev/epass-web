@@ -20,11 +20,11 @@ export default function TestDatabasePage() {
       const response = await fetch('/api/test-db');
       const data = await response.json();
       setResult(data);
-    } catch (error: any) {
+    } catch (error: unknown) {
       setResult({
         supabase: 'error',
         tables: {},
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Unknown error',
         overall: 'error',
       });
     } finally {
@@ -70,7 +70,7 @@ export default function TestDatabasePage() {
               {/* Instructions */}
               {result.instructions && (
                 <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                  <h3 className="font-semibold text-yellow-800 mb-2">⚠️ Action Required</h3>
+                  <h3 className="font-semibold text-yellow-800 mb-2">Action Required</h3>
                   <p className="text-sm text-yellow-700 mb-2">{result.instructions.message}</p>
                   <p className="text-xs text-yellow-600">
                     SQL file: <code className="bg-yellow-200 px-1 rounded">{result.instructions.sqlFile}</code>
@@ -90,11 +90,11 @@ export default function TestDatabasePage() {
               <div className="border rounded-lg p-4">
                 <h3 className="font-semibold mb-3">Tables Status</h3>
                 <div className="space-y-2">
-                  {Object.entries(result.tables).map(([table, info: any]) => (
+                  {Object.entries(result.tables).map(([table, info]) => (
                     <div key={table} className="flex items-center justify-between p-2 bg-gray-50 rounded">
                       <span className="font-medium">{table}</span>
-                      <span className={`px-2 py-1 rounded text-xs ${getStatusColor(info.status)}`}>
-                        {info.status}
+                      <span className={`px-2 py-1 rounded text-xs ${getStatusColor((info as any).status)}`}>
+                        {(info as any).status}
                       </span>
                     </div>
                   ))}
@@ -120,7 +120,7 @@ export default function TestDatabasePage() {
               {/* Next Steps */}
               {result.overall === 'healthy' ? (
                 <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                  <h3 className="font-semibold text-green-800 mb-2">✅ Database Ready!</h3>
+                  <h3 className="font-semibold text-green-800 mb-2">Database Ready!</h3>
                   <p className="text-sm text-green-700">
                     Your Supabase database is properly configured. You can now:
                   </p>
@@ -132,7 +132,7 @@ export default function TestDatabasePage() {
                 </div>
               ) : (
                 <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                  <h3 className="font-semibold text-blue-800 mb-2">📋 Setup Steps</h3>
+                  <h3 className="font-semibold text-blue-800 mb-2">Setup Steps</h3>
                   <ol className="text-sm text-blue-700 list-decimal list-inside space-y-2">
                     <li>
                       Go to your <a href="https://supabase.com/dashboard" target="_blank" rel="noopener noreferrer" className="underline font-medium">Supabase Dashboard</a>

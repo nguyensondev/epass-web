@@ -57,14 +57,14 @@ export async function getUsers() {
 
 export async function getUser(phoneNumber: string) {
   const users = await getUsers();
-  return users[phone_number] || null;
+  return users[phoneNumber] || null;
 }
 
 export async function saveUser(phoneNumber: string, userData: Partial<User>) {
   await initDb();
   const users = await getUsers();
-  users[phone_number] = {
-    phone_number,
+  users[phoneNumber] = {
+    phone_number: phoneNumber,
     created_at: userData.created_at || new Date().toISOString(),
     ...userData,
   };
@@ -76,7 +76,7 @@ export async function updateUserTelegram(phoneNumber: string, chatId: string) {
 }
 
 export async function removeUserTelegram(phoneNumber: string) {
-  await saveUser(phoneNumber, { telegram_chat_id: null });
+  await saveUser(phoneNumber, { telegram_chat_id: undefined });
 }
 
 // Settings

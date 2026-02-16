@@ -45,8 +45,8 @@ export async function checkNewTransactions() {
     console.log(`Fetched ${transactions.length} transactions from the last 24 hours`);
 
     // Get the last checked timestamp
-    const lastChecked = settings.lastCheckedTimestamp
-      ? new Date(settings.lastCheckedTimestamp)
+    const lastChecked = settings?.last_checked_timestamp
+      ? new Date(settings.last_checked_timestamp)
       : new Date(0); // Epoch if never checked
 
     // Filter for new transactions
@@ -62,9 +62,9 @@ export async function checkNewTransactions() {
       let notificationsSent = 0;
 
       for (const user of Object.values(users)) {
-        if (user.telegramChatId) {
+        if (user.telegram_chat_id) {
           for (const tx of newTransactions) {
-            const success = await sendTransactionNotification(user.telegramChatId, tx);
+            const success = await sendTransactionNotification(user.telegram_chat_id, tx);
             if (success) {
               notificationsSent++;
             }

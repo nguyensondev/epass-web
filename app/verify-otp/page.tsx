@@ -1,11 +1,12 @@
 'use client';
 
+import { Suspense } from 'react';
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuthStore } from '@/lib/store';
 import { Key, ArrowLeft, Loader2, Shield } from 'lucide-react';
 
-export default function VerifyOTPPage() {
+function VerifyOTPContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [otp, setOtp] = useState('');
@@ -40,8 +41,8 @@ export default function VerifyOTPPage() {
 
       setAuth({ phoneNumber } as any, data.token);
       router.replace('/dashboard');
-    } catch (err: any) {
-      setError(err.message || 'Invalid verification code');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Invalid verification code');
     } finally {
       setLoading(false);
     }
@@ -136,5 +137,17 @@ export default function VerifyOTPPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function VerifyOTPPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+      </div>
+    }>
+      <VerifyOTPContent />
+    </Suspense>
   );
 }

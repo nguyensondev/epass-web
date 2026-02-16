@@ -1,5 +1,6 @@
 // Re-export Supabase functions for backward compatibility
 export {
+  getAllUsers as getUsers,
   getUser,
   saveUser,
   updateUserTelegram,

@@ -38,6 +38,7 @@ async function cleanupExpiredOTPs(): Promise<void> {
   // You can call it via RPC or set up a cron job in Supabase
   try {
     const { supabase } = await import('./db-supabase');
+    if (!supabase) return;
     await supabase.rpc('cleanup_expired_otps');
   } catch (error) {
     console.error('Failed to cleanup expired OTPs:', error);

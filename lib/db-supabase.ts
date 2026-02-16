@@ -11,6 +11,14 @@ export const supabase = supabaseUrl && supabaseKey
   ? createClient(supabaseUrl, supabaseKey)
   : null;
 
+// Helper function to ensure supabase is available
+function requireSupabase() {
+  if (!supabase) {
+    throw new Error('Supabase client is not initialized. Please check SUPABASE_URL and SUPABASE_ANON_KEY environment variables.');
+  }
+  return supabase;
+}
+
 // Table interfaces
 export interface User {
   phone_number: string;
@@ -36,8 +44,32 @@ export interface OTPRecord {
 // USERS TABLE
 // ==================================================
 
+export async function getAllUsers(): Promise<Record<string, User>> {
+  if (!supabase) {
+    return {};
+  }
+
+  const client = requireSupabase();
+  const { data, error } = await client
+    .from('users')
+    .select('*');
+
+  if (error) {
+    console.error('Error fetching users:', error);
+    return {};
+  }
+
+  // Convert array to record keyed by phone_number
+  const users: Record<string, User> = {};
+  for (const user of data || []) {
+    users[user.phone_number] = user;
+  }
+  return users;
+}
+
 export async function getUser(phoneNumber: string): Promise<User | null> {
-  const { data, error } = await supabase
+  const client = requireSupabase();
+  const { data, error } = await client
     .from('users')
     .select('*')
     .eq('phone_number', phoneNumber)
@@ -53,7 +85,8 @@ export async function getUser(phoneNumber: string): Promise<User | null> {
 }
 
 export async function saveUser(phoneNumber: string, userData: Partial<User>): Promise<void> {
-  const { error } = await supabase
+  const client = requireSupabase();
+  const { error } = await client
     .from('users')
     .upsert({
       phone_number: phoneNumber,
@@ -70,7 +103,8 @@ export async function saveUser(phoneNumber: string, userData: Partial<User>): Pr
 }
 
 export async function updateUserTelegram(phoneNumber: string, chatId: string): Promise<void> {
-  const { error } = await supabase
+  const client = requireSupabase();
+  const { error } = await client
     .from('users')
     .update({ telegram_chat_id: chatId })
     .eq('phone_number', phoneNumber);
@@ -82,7 +116,8 @@ export async function updateUserTelegram(phoneNumber: string, chatId: string): P
 }
 
 export async function removeUserTelegram(phoneNumber: string): Promise<void> {
-  const { error } = await supabase
+  const client = requireSupabase();
+  const { error } = await client
     .from('users')
     .update({ telegram_chat_id: null })
     .eq('phone_number', phoneNumber);
@@ -98,7 +133,8 @@ export async function removeUserTelegram(phoneNumber: string): Promise<void> {
 // ==================================================
 
 export async function getSettings(): Promise<Settings | null> {
-  const { data, error } = await supabase
+  const client = requireSupabase();
+  const { data, error } = await client
     .from('settings')
     .select('*')
     .eq('id', 1)
@@ -156,7 +192,8 @@ export async function addWhitelistedPhone(phoneNumber: string): Promise<void> {
   const phones = current?.whitelisted_phones || [];
 
   if (!phones.includes(phoneNumber)) {
-    const { error } = await supabase
+    const client = requireSupabase();
+  const { error } = await client
       .from('settings')
       .update({ whitelisted_phones: [...phones, phoneNumber] })
       .eq('id', 1);
@@ -172,7 +209,8 @@ export async function removeWhitelistedPhone(phoneNumber: string): Promise<void>
   const settings = await getSettings();
   if (!settings) return;
 
-  const { error } = await supabase
+  const client = requireSupabase();
+  const { error } = await client
     .from('settings')
     .update({
       whitelisted_phones: settings.whitelisted_phones.filter(p => p !== phoneNumber)
@@ -186,7 +224,8 @@ export async function removeWhitelistedPhone(phoneNumber: string): Promise<void>
 }
 
 export async function updateLastCheckedTimestamp(timestamp: string): Promise<void> {
-  const { error } = await supabase
+  const client = requireSupabase();
+  const { error } = await client
     .from('settings')
     .update({ last_checked_timestamp: timestamp })
     .eq('id', 1);
@@ -202,7 +241,8 @@ export async function updateLastCheckedTimestamp(timestamp: string): Promise<voi
 // ==================================================
 
 export async function setOTP(phoneNumber: string, code: string, expiresAt: number): Promise<void> {
-  const { error } = await supabase
+  const client = requireSupabase();
+  const { error } = await client
     .from('otps')
     .upsert({
       phone_number: phoneNumber,
@@ -219,7 +259,8 @@ export async function setOTP(phoneNumber: string, code: string, expiresAt: numbe
 }
 
 export async function getOTP(phoneNumber: string): Promise<{ code: string; expires_at: number } | null> {
-  const { data, error } = await supabase
+  const client = requireSupabase();
+  const { data, error } = await client
     .from('otps')
     .select('code, expires_at')
     .eq('phone_number', phoneNumber)
@@ -235,7 +276,8 @@ export async function getOTP(phoneNumber: string): Promise<{ code: string; expir
 }
 
 export async function deleteOTP(phoneNumber: string): Promise<void> {
-  const { error } = await supabase
+  const client = requireSupabase();
+  const { error } = await client
     .from('otps')
     .delete()
     .eq('phone_number', phoneNumber);
@@ -266,7 +308,8 @@ export async function setEpassTokens(accessToken: string, refreshToken: string):
     await initSettings();
   }
 
-  const { error } = await supabase
+  const client = requireSupabase();
+  const { error } = await client
     .from('settings')
     .update({
       epass_token: accessToken,

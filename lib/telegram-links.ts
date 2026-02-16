@@ -25,7 +25,8 @@ class PendingLinksStore {
   // Clean up expired codes
   cleanup(): void {
     const now = Date.now();
-    for (const [code, link] of this.links.entries()) {
+    const entries = Array.from(this.links.entries());
+    for (const [code, link] of entries) {
       if (link.expiresAt < now) {
         this.links.delete(code);
       }

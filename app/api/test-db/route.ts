@@ -1,11 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase, getSettings } from '@/lib/db-supabase';
 
+interface TableStatus {
+  status: string;
+  whitelisted_phones?: number;
+  message?: string;
+  hint?: string;
+}
+
 export async function GET(request: NextRequest) {
-  const results = {
+  const results: {
+    supabase: string;
+    tables: Record<string, TableStatus>;
+    error: string | null;
+  } = {
     supabase: 'not_configured',
     tables: {},
-    error: null as string | null,
+    error: null,
   };
 
   try {
@@ -27,10 +38,10 @@ export async function GET(request: NextRequest) {
         status: 'empty',
         message: 'No settings found. Run the SQL migration script.',
       };
-    } catch (error: any) {
+    } catch (error) {
       results.tables.settings = {
         status: 'error',
-        message: error.message,
+        message: error instanceof Error ? error.message : 'Unknown error',
       };
     }
 
@@ -52,10 +63,10 @@ export async function GET(request: NextRequest) {
           status: 'accessible',
         };
       }
-    } catch (error: any) {
+    } catch (error) {
       results.tables.users = {
         status: 'error',
-        message: error.message,
+        message: error instanceof Error ? error.message : 'Unknown error',
       };
     }
 
@@ -77,16 +88,16 @@ export async function GET(request: NextRequest) {
           status: 'accessible',
         };
       }
-    } catch (error: any) {
+    } catch (error) {
       results.tables.otps = {
         status: 'error',
-        message: error.message,
+        message: error instanceof Error ? error.message : 'Unknown error',
       };
     }
 
     // Overall health check
     const allTablesAccessible = Object.values(results.tables).every(
-      (t: any) => t.status === 'accessible'
+      (t) => t.status === 'accessible'
     );
 
     return NextResponse.json({
@@ -98,10 +109,10 @@ export async function GET(request: NextRequest) {
       },
     });
 
-  } catch (error: any) {
+  } catch (error) {
     return NextResponse.json({
       ...results,
-      error: error.message,
+      error: error instanceof Error ? error.message : 'Unknown error',
       overall: 'error',
     }, { status: 500 });
   }
