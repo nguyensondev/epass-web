@@ -32,6 +32,8 @@ export interface Settings {
   last_checked_timestamp?: string;
   epass_token?: string;
   epass_refresh_token?: string;
+  epass_username?: string;
+  epass_password?: string;
 }
 
 export interface OTPRecord {
@@ -319,6 +321,38 @@ export async function setEpassTokens(accessToken: string, refreshToken: string):
 
   if (error) {
     console.error('Error saving ePass tokens:', error);
+    throw error;
+  }
+}
+
+export async function getEpassCredentials(): Promise<{ username: string; password: string } | null> {
+  const settings = await getSettings();
+  if (!settings?.epass_username || !settings?.epass_password) {
+    return null;
+  }
+  return {
+    username: settings.epass_username,
+    password: settings.epass_password,
+  };
+}
+
+export async function setEpassCredentials(username: string, password: string): Promise<void> {
+  const settings = await getSettings();
+  if (!settings) {
+    await initSettings();
+  }
+
+  const client = requireSupabase();
+  const { error } = await client
+    .from('settings')
+    .update({
+      epass_username: username,
+      epass_password: password,
+    })
+    .eq('id', 1);
+
+  if (error) {
+    console.error('Error saving ePass credentials:', error);
     throw error;
   }
 }

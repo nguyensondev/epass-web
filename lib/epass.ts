@@ -8,6 +8,14 @@ export const EPASS_CONFIG = {
   contractId: process.env.EPASS_CONTRACT_ID || '1945130',
 };
 
+// Custom error class for token-related errors
+export class EPassTokenError extends Error {
+  constructor(message: string, public readonly isAuthError: boolean = true) {
+    super(message);
+    this.name = 'EPassTokenError';
+  }
+}
+
 // In-memory token cache (server-side only)
 let tokenCache: {
   accessToken: string;
@@ -100,6 +108,12 @@ async function refreshAccessToken(): Promise<string> {
 
   if (!response.ok) {
     const error = await response.text();
+    // Check if it's an invalid grant error (refresh token expired)
+    if (response.status === 400 || response.status === 401) {
+      console.error('Refresh token expired or invalid. Attempting re-authentication...');
+      // Try re-authentication instead of throwing error
+      return await reAuthenticate();
+    }
     throw new Error(`Failed to refresh token: ${response.status} ${error}`);
   }
 
@@ -130,6 +144,93 @@ async function refreshAccessToken(): Promise<string> {
   return tokenCache.accessToken;
 }
 
+// Re-authenticate using username/password credentials
+async function reAuthenticate(): Promise<string> {
+  try {
+    // Get credentials from Supabase
+    const { getEpassCredentials } = await import('./db-supabase');
+    const credentials = await getEpassCredentials();
+
+    if (!credentials) {
+      // Try environment variables as fallback
+      const username = process.env.EPASS_USERNAME;
+      const password = process.env.EPASS_PASSWORD;
+
+      if (!username || !password) {
+        throw new EPassTokenError(
+          'Không tìm thấy thông tin đăng nhập. Vui lòng cấu hình tài khoản ePass.',
+          true
+        );
+      }
+
+      console.log('Using credentials from environment variables for re-authentication');
+      return await authenticateWithCredentials(username, password);
+    }
+
+    console.log('Using credentials from Supabase for re-authentication');
+    return await authenticateWithCredentials(credentials.username, credentials.password);
+  } catch (error) {
+    if (error instanceof EPassTokenError) {
+      throw error;
+    }
+    throw new EPassTokenError(
+      'Không thể đăng nhập lại. Vui lòng kiểm tra thông tin đăng nhập.',
+      true
+    );
+  }
+}
+
+// Authenticate with username/password and save tokens
+async function authenticateWithCredentials(username: string, password: string): Promise<string> {
+  const response = await fetch(EPASS_CONFIG.tokenURL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: new URLSearchParams({
+      grant_type: 'password',
+      client_id: EPASS_CONFIG.clientId,
+      username,
+      password,
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    console.error('Re-authentication failed:', response.status, error);
+    throw new EPassTokenError(
+      'Đăng nhập thất bại. Vui lòng kiểm tra tên đăng nhập và mật khẩu.',
+      true
+    );
+  }
+
+  const data = await response.json();
+
+  // Update cache with new tokens
+  tokenCache = {
+    accessToken: data.access_token,
+    refreshToken: data.refresh_token,
+    expiresAt: Date.now() + data.expires_in * 1000,
+  };
+
+  // Save new tokens to Supabase if available, otherwise to local file
+  try {
+    const { setEpassTokens: setSupabaseTokens } = await import('./db-supabase');
+    await setSupabaseTokens(tokenCache.accessToken, tokenCache.refreshToken);
+    console.log('Successfully re-authenticated and saved new tokens to Supabase');
+  } catch (error) {
+    try {
+      const { setEpassTokens: setLocalTokens } = await import('./db-fs');
+      await setLocalTokens(tokenCache.accessToken, tokenCache.refreshToken);
+      console.log('Successfully re-authenticated and saved new tokens to local file');
+    } catch (localError) {
+      console.log('Could not save tokens to storage:', localError);
+    }
+  }
+
+  return tokenCache.accessToken;
+}
+
 // Get valid access token (refresh if needed)
 export async function getAccessToken(): Promise<string> {
   const cache = await initializeToken();
@@ -143,35 +244,45 @@ export async function getAccessToken(): Promise<string> {
 
 // Make authenticated request to ePass API
 export async function fetchEPASS(endpoint: string, options?: RequestInit): Promise<Response> {
-  const token = await getAccessToken();
-
   const url = endpoint.startsWith('http')
     ? endpoint
     : `${EPASS_CONFIG.baseURL}${endpoint}`;
 
-  const response = await fetch(url, {
-    ...options,
-    headers: {
-      ...options?.headers,
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-  });
+  try {
+    const token = await getAccessToken();
 
-  // If unauthorized, try refreshing token once
-  if (response.status === 401) {
-    const newToken = await refreshAccessToken();
-
-    // Retry with new token
-    return fetch(url, {
+    const response = await fetch(url, {
       ...options,
       headers: {
         ...options?.headers,
-        Authorization: `Bearer ${newToken}`,
+        Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
     });
-  }
 
-  return response;
+    // If unauthorized, try refreshing token once
+    if (response.status === 401) {
+      console.log('Access token expired, attempting refresh...');
+      const newToken = await refreshAccessToken();
+
+      // Retry with new token
+      return fetch(url, {
+        ...options,
+        headers: {
+          ...options?.headers,
+          Authorization: `Bearer ${newToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
+    }
+
+    return response;
+  } catch (error) {
+    // Re-throw token errors so they can be properly handled by the caller
+    if (error instanceof EPassTokenError) {
+      throw error;
+    }
+    // Wrap other errors
+    throw error;
+  }
 }
