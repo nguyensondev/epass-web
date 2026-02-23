@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/jwt';
 import { fetchTransactions } from '@/lib/epass-api';
+import { EPassTokenError } from '@/lib/epass';
 import ExcelJS from 'exceljs';
+
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {
@@ -91,6 +95,15 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error('Export error:', error);
+
+    // Handle token-related errors with proper status code
+    if (error instanceof EPassTokenError) {
+      return NextResponse.json(
+        { error: error.message, isAuthError: true },
+        { status: 401 }
+      );
+    }
+
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to export' },
       { status: 500 }
