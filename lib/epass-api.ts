@@ -22,9 +22,15 @@ function splitDateRange(startDate: Date, endDate: Date, maxDays = 30): Array<{fr
   let currentStart = new Date(startDate);
   const finalEnd = new Date(endDate);
 
+  // Reset time components to avoid timezone issues
+  currentStart.setHours(0, 0, 0, 0);
+  finalEnd.setHours(23, 59, 59, 999);
+
   while (currentStart <= finalEnd) {
     let currentEnd = new Date(currentStart);
+    // Add maxDays - 1 days to get a range of maxDays days
     currentEnd.setDate(currentEnd.getDate() + (maxDays - 1));
+    currentEnd.setHours(23, 59, 59, 999);
 
     if (currentEnd > finalEnd) {
       currentEnd = finalEnd;
@@ -35,8 +41,10 @@ function splitDateRange(startDate: Date, endDate: Date, maxDays = 30): Array<{fr
       to: formatDate(currentEnd),
     });
 
+    // Move to the next day after currentEnd
     currentStart = new Date(currentEnd);
     currentStart.setDate(currentStart.getDate() + 1);
+    currentStart.setHours(0, 0, 0, 0);
   }
 
   return ranges;
